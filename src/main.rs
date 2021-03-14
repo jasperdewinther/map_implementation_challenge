@@ -157,5 +157,4 @@ fn check_collisions(){
      timing_wrapper::<FlatMap>("flatmap".parse().unwrap());
      timing_wrapper::<MatMap>("MatMap".parse().unwrap());
      timing_wrapper::<DefaultMap>("DefaultMap".parse().unwrap());
-
 }

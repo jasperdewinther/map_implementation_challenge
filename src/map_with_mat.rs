@@ -150,5 +150,4 @@ impl MatMap{
             _ => { false }
         }
     }
-
 }
