@@ -1,19 +1,17 @@
 use crate::map::Map;
-use bytemuck::from_bytes;
 
-fn hash(data: &[u8]) -> u64{
+#[inline]
+fn hash(data: &[u8]) -> u128{
     //http://www.cse.yorku.ca/~oz/hash.html
-    let mut h: u64 = 5381;
-    let c = data.chunks(4);
-    c.for_each(|chunk| {
-        let number: &u32 = from_bytes(chunk);
-        h = ((h << 5)+h)+*number as u64;
-    });
+    let mut h = 0u128;
+    for point in data{
+        h = (h << 8).wrapping_add(*point as u128);
+    }
     return h;
 }
 
 pub struct FlatMap{
-    data: Vec<(i32, Box<[u8]>)>
+    data: Vec<(i32, u128)>
 }
 
 impl Map for FlatMap{
@@ -24,21 +22,23 @@ impl Map for FlatMap{
     }
 
     fn insert(&mut self, key: &str, value: i32) -> bool {
+        let key_hash = hash(key.as_ref());
         let found_index = self.data.binary_search_by(|(_, k)| {
-            k.as_ref().cmp(key.as_bytes())
+            k.cmp(&key_hash)
         });
         return match found_index {
             Ok(_) => { false }
             Err(i) => {
-                self.data.insert(i, (value, Box::from(key.as_bytes())));
+                self.data.insert(i, (value, key_hash));
                 true
             }
         }
     }
 
     fn get(&mut self, key: &str) -> Option<&mut i32> {
+        let key_hash = hash(key.as_ref());
         let found_index = self.data.binary_search_by(|(_, k)| {
-            k.as_ref().cmp(key.as_bytes())
+            k.cmp(&key_hash)
         });
         match found_index{
             Ok(i) => {Some(&mut self.data.get_mut(i).unwrap().0)}
@@ -47,8 +47,9 @@ impl Map for FlatMap{
     }
 
     fn remove(&mut self, key: &str) -> bool {
+        let key_hash = hash(key.as_ref());
         let found_index = self.data.binary_search_by(|(_, k)| {
-            k.as_ref().cmp(key.as_bytes())
+            k.cmp(&key_hash)
         });
         return match found_index {
             Ok(i) => {

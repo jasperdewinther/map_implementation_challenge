@@ -4,6 +4,9 @@ mod map;
 mod map_default;
 
 use std::time::Instant;
+use std::str;
+use rand::Rng;
+use crate::map::Map;
 use crate::map_flat_vec::FlatMap;
 use crate::map_with_mat::MatMap;
 use crate::map_default::DefaultMap;
@@ -111,10 +114,48 @@ fn timing_wrapper<T: map::Map>(name: String){
     println!("3: {}", sum3/10.0);
 }
 
-fn main() {
+fn check_collisions(){
+    let mut rng = rand::thread_rng();
+    let mut testing = MatMap::new();
+    let mut groundTruth = DefaultMap::new();
+    let mut keys = Vec::new();
 
-    timing_wrapper::<FlatMap>("flatmap".parse().unwrap());
-    timing_wrapper::<MatMap>("MatMap".parse().unwrap());
-    timing_wrapper::<DefaultMap>("DefaultMap".parse().unwrap());
+    for i in 0 .. 100000000 {
+        let length = rng.gen_range(0..20);
+        let mut chars = Vec::with_capacity(length);
+        for _ in 0..length{
+            let mut c = rng.gen::<u8>();
+            c = (c%94)+32;
+            chars.push(c)
+        }
+
+        let mut key = str::from_utf8(chars.as_slice()).unwrap();
+        let value = rng.gen::<i32>();
+        if groundTruth.get(key).is_none(){
+            testing.insert(key, value);
+            groundTruth.insert(key, value);
+            keys.push(key.to_string().clone());
+        }
+    }
+    println!("{}", keys.len());
+    let mut counter = 0;
+    for key in keys{
+        if testing.get(key.as_str()) == groundTruth.get(key.as_str()){
+            continue;
+        }
+        counter+=1;
+        println!("{:?}", key);
+        println!("{:?}", key.as_bytes());
+        println!("{:?} {:?}",testing.get(key.as_str()), groundTruth.get(key.as_str()));
+    }
+    println!("counted {} collisions", counter);
+    println!("success");
+}
+
+ fn main() {
+     //check_collisions();
+     timing_wrapper::<FlatMap>("flatmap".parse().unwrap());
+     timing_wrapper::<MatMap>("MatMap".parse().unwrap());
+     timing_wrapper::<DefaultMap>("DefaultMap".parse().unwrap());
 
 }

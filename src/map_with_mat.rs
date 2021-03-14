@@ -1,24 +1,23 @@
 use crate::map::Map;
 
-const NUMBER_OF_CHARACTERS: usize = 126-32;
+const NUMBER_OF_CHARACTERS: usize = 126-31;
 const NDARRAYSIZE: usize = NUMBER_OF_CHARACTERS.pow(2);
 
 
-fn hash(data: &[u8]) -> u64{
-    //http://www.cse.yorku.ca/~oz/hash.html
-    let mut h: u64 = 5381;
+fn hash(data: &[u8]) -> u128{
+    let mut h = 0u128;
     for point in data{
-        h = ((h << 5)+h)+*point as u64;
+        h = (h << 8).wrapping_add(*point as u128);
     }
     return h;
 }
 #[inline]
 fn index(x: &u8, y: &u8) -> usize{
-    ((x-32) as usize)+((y-32) as usize)*NUMBER_OF_CHARACTERS
+    ((x-31) as usize)+((y-31) as usize)*NUMBER_OF_CHARACTERS
 }
 
 pub struct MatMap{
-    data: Vec<Option<Vec<(i32, Box<[u8]>)>>>
+    data: Vec<Option<Vec<(i32, u128)>>>
 }
 
 impl Map for MatMap  {
@@ -67,12 +66,12 @@ impl MatMap{
         let bytes = key.as_bytes();
         return match bytes.len() {
             1 => {
-                let i = index(&bytes[0], &32);
+                let i = index(&bytes[0], &31);
                 let rest = &bytes[1..];
                 f(self, i, rest)
             }
             0 => {
-                let i = index(&32, &32);
+                let i = index(&31, &31);
                 let rest = bytes;
                 f(self, i, rest)
             }
@@ -85,27 +84,29 @@ impl MatMap{
     }
 
     fn handle_insert_data(&mut self, index: usize, rest: &[u8], value: i32) -> bool{
-        let vec:Option<&mut Vec<(i32, Box<[u8]>)>> = self.data[index].as_mut();
+        let vec:Option<&mut Vec<(i32, u128)>> = self.data[index].as_mut();
         return match vec {
-            None => {
-                let mut v: Vec<(i32, Box<[u8]>)> = Vec::new();
-                v.push((value, Box::from(rest)));
-                self.data[index] = Some(v);
-                true
-            }
-            Some(mut v) => {
-                let found_index = v.binary_search_by(|(_, key)| {
-                    key.as_ref().cmp(rest)
+            Some(v) => {
+                let key_hash = hash(rest.as_ref());
+                let found_index = v.binary_search_by(|(_, k)| {
+                    k.cmp(&key_hash)
                 });
                 match found_index {
                     Ok(_) => {
                         false
                     }
                     Err(i) => {
-                        v.insert(i, (value, Box::from(rest)));
+                        v.insert(i, (value, key_hash));
                         true
                     }
                 }
+            }
+            _ => {
+                let mut v: Vec<(i32, u128)> = Vec::new();
+                let key_hash = hash(rest.as_ref());
+                v.push((value, key_hash));
+                self.data[index] = Some(v);
+                true
             }
         }
     }
@@ -113,10 +114,11 @@ impl MatMap{
         match &mut self.data[index]{
             None => {return None}
             Some(v) => {
-                let found_key = v.binary_search_by(|(_, key)| {
-                    key.as_ref().cmp(rest)
+                let key_hash = hash(rest.as_ref());
+                let found_index = v.binary_search_by(|(_, k)| {
+                    k.cmp(&key_hash)
                 });
-                match found_key{
+                match found_index{
                     Ok(index) => {
                         let object = v.get_mut(index).unwrap();
                         Some(&mut object.0)
@@ -130,12 +132,12 @@ impl MatMap{
     }
     fn handle_remove(&mut self, index: usize, rest: &[u8]) -> bool{
         return match &mut self.data[index] {
-            None => { false }
             Some(v) => {
-                let found_key = v.binary_search_by(|(_, key)| {
-                    key.as_ref().cmp(rest)
+                let key_hash = hash(rest.as_ref());
+                let found_index = v.binary_search_by(|(_, k)| {
+                    k.cmp(&key_hash)
                 });
-                match found_key {
+                match found_index {
                     Ok(i) => {
                         v.remove(i);
                         true
@@ -145,6 +147,7 @@ impl MatMap{
                     }
                 }
             }
+            _ => { false }
         }
     }
 
