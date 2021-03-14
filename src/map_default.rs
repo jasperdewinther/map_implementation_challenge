@@ -27,10 +27,9 @@ impl Map for DefaultMap{
     }
 
     fn remove(&mut self, key: &str) -> bool {
-        if self.data.contains_key(key){
-            self.data.remove(key);
-            return true;
+        match self.data.remove(key){
+            Some(_) => return true,
+            None => return false
         }
-        return false;
     }
 }
